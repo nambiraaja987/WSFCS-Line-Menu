@@ -9,7 +9,7 @@ from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 
 # ==============================================================================
-# CONFIGURATION
+# CONFIGURATION & BRANDING
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="wide")
 
@@ -62,7 +62,10 @@ MIDDLE_LUNCH_SLUG = "hanes-magnet"
 # HELPER FUNCTIONS
 # ==============================================================================
 def fetch_menu_data(slug, target_date, menu_type):
-    url = f"https://wsfcs.api.nutrislice.com/menu/api/weeks/schoo/{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
+    url = (
+        f"https://wsfcs.api.nutrislice.com/menu/api/weeks/school/"
+        f"{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
+    )
     try:
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
@@ -86,27 +89,27 @@ def extract_food_items(data, target_date):
     return items
 
 def extract_station_data(data, target_date):
-    stations = {"General Menu": []}
-    current = "General Menu"
+    categorized = {"General Menu": []}
+    current_station = "General Menu"
     date_str = target_date.strftime("%Y-%m-%d")
 
     for day in data.get("days", []):
         if day.get("date") == date_str:
             for item in day.get("menu_items", []):
                 if item.get("is_section_title"):
-                    current = item.get("text", "General Menu")
-                    stations.setdefault(current, [])
+                    current_station = item.get("text", current_station)
+                    categorized.setdefault(current_station, [])
                     continue
                 food = item.get("food")
                 if food and food.get("name"):
                     name = food["name"]
                     if not any(x in name.upper() for x in EXCLUDED_ITEMS):
-                        stations[current].append(name)
+                        categorized[current_station].append(name)
             break
 
-    return {k: v for k, v in stations.items() if v}
+    return {k: v for k, v in categorized.items() if v}
 
-def create_doc(content, disclaimer, station_mode=False):
+def create_doc_bytes(content, disclaimer, station_mode=False):
     doc = Document()
     sec = doc.sections[0]
     sec.top_margin = Inches(2.8)
@@ -149,86 +152,119 @@ def create_doc(content, disclaimer, station_mode=False):
     return buf
 
 # ==============================================================================
-# UI
+# WEBSITE INTERFACE (UNCHANGED UI)
 # ==============================================================================
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
     st.image(WSFCS_LOGO_URL, width=150)
 with col2:
-    st.markdown("<h1 style='text-align:center;'>Line Menu Generator</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>Line Menu Generator</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'>Select any date range.</p>", unsafe_allow_html=True)
 with col3:
     st.image(CHARTWELLS_LOGO_URL, width=200)
 
 st.markdown("---")
 
 # ==============================================================================
-# SIDEBAR
+# SIDEBAR (UNCHANGED)
 # ==============================================================================
 with st.sidebar:
+    st.header("⚙️ Settings")
+
+    st.subheader("1. Select Date Range")
     start_d = st.date_input("Start Date", date.today())
     end_d = st.date_input("End Date", date.today())
 
-    run_breakfast = st.checkbox("Breakfast", True)
-    run_ele = st.checkbox("Elementary Lunch", True)
-    run_mid = st.checkbox("Middle Lunch", True)
-    run_high = st.checkbox("High Lunch", True)
+    st.subheader("2. Menu Categories")
+    run_breakfast = st.checkbox("All Schools - Breakfast", True)
+    run_ele_lunch = st.checkbox("Elementary Lunch", True)
+    run_mid_lunch = st.checkbox("Middle School Lunch", True)
+    run_high_lunch = st.checkbox("High School Lunch", True)
 
 # ==============================================================================
-# MAIN
+# MAIN LOGIC
 # ==============================================================================
-if st.button("Generate Menus"):
+if st.button("🚀 Generate Menus", type="primary"):
+
+    if start_d > end_d:
+        st.error("Start Date must be before End Date.")
+        st.stop()
+
     try:
         r = requests.get(CSV_URL, timeout=10)
         r.raise_for_status()
         schools = list(csv.DictReader(io.StringIO(r.text)))
     except Exception as e:
-        st.error(f"CSV load failed: {e}")
+        st.error(f"Error loading Schools.csv: {e}")
         st.stop()
 
-    zip_buf = io.BytesIO()
+    zip_buffer = io.BytesIO()
+    progress = st.progress(0)
+    status = st.empty()
 
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zipf:
-        d = start_d
-        while d <= end_d:
+    dates = []
+    d = start_d
+    while d <= end_d:
+        dates.append(d)
+        d += timedelta(days=1)
+
+    total = len(dates) * 4
+    done = 0
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for d in dates:
+            d_str = d.strftime("%Y-%m-%d")
+            parent = f"Line Menu_{d_str}/"
+
             if run_breakfast:
+                status.text(f"Processing Breakfast: {d_str}")
                 for level, slug in REPRESENTATIVE_BREAKFAST.items():
                     data = fetch_menu_data(slug, d, "breakfast")
                     items = extract_food_items(data, d)
                     if items:
-                        doc = create_doc(items, BREAKFAST_DISCLAIMER)
-                        zipf.writestr(f"{level}_Breakfast_{d}.docx", doc.read())
+                        doc = create_doc_bytes(items, BREAKFAST_DISCLAIMER)
+                        zipf.writestr(f"{parent}{level}_Breakfast_{d_str}.docx", doc.read())
+                done += 1
+                progress.progress(done / total)
 
-            if run_ele:
+            if run_ele_lunch:
+                status.text(f"Processing Elementary Lunch: {d_str}")
                 data = fetch_menu_data(ELEMENTARY_LUNCH_SLUG, d, "lunch")
                 items = extract_food_items(data, d)
                 if items:
-                    doc = create_doc(items, LUNCH_DISCLAIMER)
-                    zipf.writestr(f"Elementary_Lunch_{d}.docx", doc.read())
+                    doc = create_doc_bytes(items, LUNCH_DISCLAIMER)
+                    zipf.writestr(f"{parent}Elementary_Lunch_{d_str}.docx", doc.read())
+                done += 1
+                progress.progress(done / total)
 
-            if run_mid:
+            if run_mid_lunch:
+                status.text(f"Processing Middle Lunch: {d_str}")
                 data = fetch_menu_data(MIDDLE_LUNCH_SLUG, d, "lunch")
                 stations = extract_station_data(data, d)
                 if stations:
-                    doc = create_doc(stations, LUNCH_DISCLAIMER, True)
-                    zipf.writestr(f"Middle_Lunch_{d}.docx", doc.read())
+                    doc = create_doc_bytes(stations, LUNCH_DISCLAIMER, True)
+                    zipf.writestr(f"{parent}Middle_Lunch_{d_str}.docx", doc.read())
+                done += 1
+                progress.progress(done / total)
 
-            if run_high:
+            if run_high_lunch:
+                status.text(f"Processing High School Lunch: {d_str}")
                 for s in schools:
                     if s.get("Type") == "HS":
                         slug = s.get("Url Name")
-                        name = s.get("School Name", "HighSchool")
+                        name = s.get("School Name", "HighSchool").replace(" ", "_")
                         data = fetch_menu_data(slug, d, "lunch")
                         stations = extract_station_data(data, d)
                         if stations:
-                            doc = create_doc(stations, LUNCH_DISCLAIMER, True)
-                            zipf.writestr(f"{name}_Lunch_{d}.docx", doc.read())
+                            doc = create_doc_bytes(stations, LUNCH_DISCLAIMER, True)
+                            zipf.writestr(f"{parent}{name}_Lunch.docx", doc.read())
+                done += 1
+                progress.progress(done / total)
 
-            d += timedelta(days=1)
-
+    st.success("Menus Generated Successfully!")
     st.download_button(
-        "Download ZIP",
-        zip_buf.getvalue(),
-        "Line_Menus.zip",
+        "📥 Download ZIP",
+        zip_buffer.getvalue(),
+        f"Line_Menus_{start_d}_to_{end_d}.zip",
         "application/zip"
     )
-
