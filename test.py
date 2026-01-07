@@ -14,28 +14,39 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (LIGHT MODE & LAYOUT) ---
 custom_css = """
     <style>
-    /* 1. Hide default Streamlit elements */
+    /* 1. Force Light Mode (White Background, Black Text) */
+    .stApp {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    /* Force all text (Headers, Paragraphs, Labels) to Black */
+    h1, h2, h3, h4, h5, h6, p, label, span, .stMarkdown {
+        color: #000000 !important;
+    }
+
+    /* 2. Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* 2. Adjust Main Container Padding */
+    /* 3. Main Container Padding */
     .block-container {
         padding-top: 1rem;
         max-width: 800px;
     }
 
-    /* 3. Style the Generate Button (Wide) */
+    /* 4. Style the Generate Button (Wide) */
     .stButton > button {
         width: 100%;
         margin-top: 1rem;
         font-size: 1.2rem !important;
     }
 
-    /* 4. Mobile Responsiveness */
+    /* 5. Mobile Responsiveness */
     @media (max-width: 640px) {
         h2 { font-size: 1.5rem !important; }
         div[data-testid="stImage"] > img {
@@ -45,6 +56,28 @@ custom_css = """
     </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <style>
+    /* Hide Streamlit header */
+    header {visibility: hidden;}
+
+    /* Hide Streamlit footer */
+    footer {visibility: hidden;}
+
+    /* Hide hamburger menu */
+    #MainMenu {visibility: hidden;}
+
+    /* Remove top padding */
+    .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # ==============================================================================
 # LOCAL FILES & CONSTANTS
@@ -222,7 +255,7 @@ with mc2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==============================================================================
-# LOGIC: RESTORED PROGRESS BAR & STATUS TEXT
+# LOGIC: PROGRESS BAR & STATUS TEXT
 # ==============================================================================
 if st.button("🚀 Generate & Download Menus", type="primary"):
     
@@ -239,7 +272,7 @@ if st.button("🚀 Generate & Download Menus", type="primary"):
     zip_buffer = io.BytesIO()
     dates = [start_d + timedelta(days=x) for x in range((end_d - start_d).days + 1)]
     
-    # --- ORIGINAL PROGRESS LOGIC ---
+    # --- PROGRESS BAR LOGIC ---
     progress_bar = st.progress(0)
     status_text = st.empty()
     total_tasks = len(dates) * 4 
