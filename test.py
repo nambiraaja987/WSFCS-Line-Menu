@@ -15,7 +15,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 st.set_page_config(page_title="WSFCS Menu Generator", layout="wide")
 
 # --- FILE PATHS ( HARDCODED FOR AUTOMATION ) ---
-BASE_DIR = r"C:\Users\nthambidurai\OneDrive - Winston-Salem Forsyth County Schools\Line Menu App"
+BASE_DIR = "https://github.com/nambiraaja987/WSFCS-Line-Menu/edit/main"
 CSV_PATH = os.path.join(BASE_DIR, "Schools.csv")
 WSFCS_LOGO = os.path.join(BASE_DIR, "wsfcs.png")
 CHARTWELLS_LOGO = os.path.join(BASE_DIR, "Chartwells.png")
@@ -281,4 +281,5 @@ if st.button("🚀 Generate Menus", type="primary"):
         data=zip_buffer.getvalue(),
         file_name=f"Line_Menus_{date_label}.zip",
         mime="application/zip"
+
     )
