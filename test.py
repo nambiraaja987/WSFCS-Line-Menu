@@ -14,39 +14,40 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- MOBILE CSS (ONLY FOR HEADER & LOGOS) ---
-# We removed the global centering so inputs look normal again.
-mobile_css = """
+# --- CUSTOM CSS ---
+custom_css = """
     <style>
-    /* Hide Streamlit default elements */
+    /* 1. Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* Mobile Tweaks for Logos */
-    @media (max-width: 640px) {
-        h2 { font-size: 1.5rem !important; }
-        div[data-testid="stImage"] > img {
-            margin: 0 auto;
-        }
-    }
-    
-    /* Add top padding */
+    /* 2. Adjust Main Container Padding */
     .block-container {
         padding-top: 1rem;
         max-width: 800px;
     }
-    
-    /* Make the Generate Button nice and wide */
+
+    /* 3. Style the Generate Button (Wide & Blue) */
     .stButton > button {
         width: 100%;
         margin-top: 1rem;
         font-size: 1.2rem !important;
     }
+
+    /* 4. Mobile Responsiveness */
+    @media (max-width: 640px) {
+        /* Make title smaller on mobile */
+        h2 { font-size: 1.5rem !important; }
+        
+        /* Force logos to center on mobile */
+        div[data-testid="stImage"] > img {
+            margin: 0 auto;
+        }
+    }
     </style>
 """
-st.markdown(mobile_css, unsafe_allow_html=True)
-
+st.markdown(custom_css, unsafe_allow_html=True)
 st.markdown(
     """
     <style>
@@ -67,6 +68,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 # ==============================================================================
 # LOCAL FILES & CONSTANTS
@@ -211,11 +213,12 @@ def create_high_school_doc(data, disclaimer):
     return buf
 
 # ==============================================================================
-# HEADER (CENTERED LOGO & TITLE)
+# UI HEADER: CENTERED LOGO & TITLE
 # ==============================================================================
-# Use columns to manually center the logo
-c1, c2, c3 = st.columns([1, 1, 1])
-with c2:
+# We use 3 columns to perfectly center the logo in the middle column
+col1, col2, col3 = st.columns([1, 1, 1])
+
+with col2:
     if os.path.exists(WSFCS_LOGO_FILENAME):
         st.image(WSFCS_LOGO_FILENAME, width=150)
 
@@ -223,7 +226,7 @@ st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generat
 st.markdown("---")
 
 # ==============================================================================
-# INPUTS (STANDARD LEFT ALIGNMENT)
+# UI BODY: LEFT ALIGNED INPUTS
 # ==============================================================================
 st.subheader("🗓️ 1. Select Date Range")
 c1, c2 = st.columns(2)
@@ -244,7 +247,7 @@ with mc2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==============================================================================
-# LOGIC & LOADING SPINNER
+# LOGIC WITH SPINNER
 # ==============================================================================
 if st.button("🚀 Generate & Download Menus", type="primary"):
     
@@ -255,8 +258,8 @@ if st.button("🚀 Generate & Download Menus", type="primary"):
         st.error(f"Missing {CSV_FILENAME}")
         st.stop()
 
-    # --- LOADING SPINNER ADDED HERE ---
-    with st.spinner('Generating Menus... Please wait, this may take a moment.'):
+    # --- SPINNER STARTS HERE ---
+    with st.spinner('Generating Menus... Please wait.'):
         
         with open(CSV_FILENAME, mode='r', encoding='utf-8-sig') as f:
             schools_raw = list(csv.DictReader(f))
@@ -298,17 +301,15 @@ if st.button("🚀 Generate & Download Menus", type="primary"):
                                 safe_name = str(clean.get("School Name")).replace(" ", "_").replace("/", "-").replace(".", "")
                                 zipf.writestr(f"{sub}{safe_name}_Lunch.docx", create_high_school_doc(stations, LUNCH_DISCLAIMER).read())
 
-    # Success message outside spinner
     st.success("✅ Menus Generated Successfully!")
     st.download_button("📥 Download ZIP", zip_buffer.getvalue(), f"Line_Menus_{start_d}_{end_d}.zip", "application/zip")
 
 # ==============================================================================
 # FOOTER: CHARTWELLS LOGO (BOTTOM RIGHT)
 # ==============================================================================
-st.markdown("<br><br>", unsafe_allow_html=True) 
+st.markdown("<br><br>", unsafe_allow_html=True)
 if os.path.exists(CHARTWELLS_LOGO_FILENAME):
-    # Push to right
+    # Use columns to push logo to the right
     fc1, fc2 = st.columns([5, 1]) 
     with fc2:
         st.image(CHARTWELLS_LOGO_FILENAME, width=120)
-
