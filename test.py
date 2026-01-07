@@ -255,7 +255,7 @@ with col2:
     if os.path.exists(WSFCS_LOGO_FILENAME):
         st.image(WSFCS_LOGO_FILENAME, width=150)
 
-st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h1>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ==============================================================================
@@ -282,7 +282,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==============================================================================
 # LOGIC
 # ==============================================================================
-if st.button("🚀 Generate & Download Menus", type="primary"):
+if st.button("🚀 Generate Menus", type="primary"):
     
     if start_d > end_d:
         st.error("Start Date must be before End Date.")
@@ -368,3 +368,4 @@ if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     fc1, fc2 = st.columns([5, 1]) 
     with fc2:
         st.image(CHARTWELLS_LOGO_FILENAME, width=120)
+
