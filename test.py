@@ -365,9 +365,10 @@ if st.button("🚀 Generate Menus", type="primary"):
 st.markdown("<br><br>", unsafe_allow_html=True)
 if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     # Use columns to push logo to the right
-    fc1, fc2 = st.columns([5, 1]) 
+    fc1, fc2 = st.columns([2, 1]) 
     with fc2:
-        st.image(CHARTWELLS_LOGO_FILENAME, width=400)
+        st.image(CHARTWELLS_LOGO_FILENAME, width=200)
+
 
 
 
