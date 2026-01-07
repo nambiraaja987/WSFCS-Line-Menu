@@ -389,4 +389,17 @@ if st.button("🚀 Generate Menus", type="primary"):
                             doc = create_high_school_doc(stations, LUNCH_DISCLAIMER)
                             
                             # EXACT Logic from high_lunch.py
-                            safe_name = str(school
+                            safe_name = str(school_name).replace(" ", "_").replace("/", "-").replace(".", "")
+                            filename = f"{safe_name}_Lunch.docx"
+                            
+                            zipf.writestr(f"{subfolder}{filename}", doc.read())
+                done += 1
+                progress.progress(done / total)
+
+    st.success("Menus Generated Successfully!")
+    st.download_button(
+        "📥 Download ZIP",
+        zip_buffer.getvalue(),
+        f"Line_Menus_{start_d}_to_{end_d}.zip",
+        "application/zip"
+    )
