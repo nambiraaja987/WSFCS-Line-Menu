@@ -14,7 +14,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- CUSTOM CSS (LIGHT MODE & LAYOUT) ---
+# --- CUSTOM CSS (LIGHT MODE, LAYOUT & BUTTON FIXES) ---
 custom_css = """
     <style>
     /* 1. Force Light Mode (White Background, Black Text) */
@@ -39,14 +39,27 @@ custom_css = """
         max-width: 800px;
     }
 
-    /* 4. Style the Generate Button (Wide) */
+    /* 4. GENERAL BUTTON STYLING (Generate Button) */
     .stButton > button {
         width: 100%;
         margin-top: 1rem;
         font-size: 1.2rem !important;
     }
 
-    /* 5. Mobile Responsiveness */
+    /* 5. DOWNLOAD BUTTON HOVER FIX */
+    /* This prevents the Download button from turning black on hover */
+    .stDownloadButton > button:hover {
+        background-color: #f0f2f6 !important; /* Light Gray */
+        color: #000000 !important;             /* Black Text */
+        border: 1px solid #333333 !important;  /* Darker Border */
+    }
+    .stDownloadButton > button {
+        background-color: #ffffff;
+        color: #000000;
+        border: 1px solid #cccccc;
+    }
+
+    /* 6. Mobile Responsiveness */
     @media (max-width: 640px) {
         h2 { font-size: 1.5rem !important; }
         div[data-testid="stImage"] > img {
@@ -342,5 +355,4 @@ if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     # Use columns to push logo to the right
     fc1, fc2 = st.columns([5, 1]) 
     with fc2:
-        st.image(CHARTWELLS_LOGO_FILENAME, width=190)
-
+        st.image(CHARTWELLS_LOGO_FILENAME, width=120)
