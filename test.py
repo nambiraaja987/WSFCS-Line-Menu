@@ -47,6 +47,27 @@ mobile_css = """
 """
 st.markdown(mobile_css, unsafe_allow_html=True)
 
+st.markdown(
+    """
+    <style>
+    /* Hide Streamlit header */
+    header {visibility: hidden;}
+
+    /* Hide Streamlit footer */
+    footer {visibility: hidden;}
+
+    /* Hide hamburger menu */
+    #MainMenu {visibility: hidden;}
+
+    /* Remove top padding */
+    .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # ==============================================================================
 # LOCAL FILES & CONSTANTS
 # ==============================================================================
@@ -290,3 +311,4 @@ if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     fc1, fc2 = st.columns([5, 1]) 
     with fc2:
         st.image(CHARTWELLS_LOGO_FILENAME, width=120)
+
