@@ -93,19 +93,15 @@ def extract_station_data(data, target_date, is_middle_school=False):
     """Extracts station-based data (High School / Middle School)."""
     categorized = {}
     current_station = "General Menu"
-    # For HS, we might default to General Menu. For MS, we usually wait for a header.
     if not is_middle_school:
         categorized[current_station] = []
         
     date_str = target_date.strftime("%Y-%m-%d")
-    
-    # Blocklist for Station Names (Middle School specific)
     MS_STATION_BLOCKLIST = ["MILK", "CONDIMENT", "CONDIMENTS"]
 
     for day in data.get("days", []):
         if day.get("date") == date_str:
             for item in day.get("menu_items", []):
-                # HEADER CHECK
                 is_header = False
                 header_text = ""
                 if item.get('is_section_title') is True:
@@ -119,35 +115,26 @@ def extract_station_data(data, target_date, is_middle_school=False):
                     clean_header = header_text.strip()
                     if len(clean_header) > 2: 
                         current_station = clean_header
-                        # Initialize if not exists
                         if current_station not in categorized:
                             categorized[current_station] = []
                     continue 
 
-                # FOOD CHECK
                 food = item.get("food")
                 if food and isinstance(food, dict) and food.get("name"):
                     food_name = food["name"]
-                    # Global Exclusion check
                     if any(x in food_name.upper() for x in EXCLUDED_ITEMS):
                         continue
-                        
-                    # Ensure list exists
                     if current_station not in categorized:
                         categorized[current_station] = []
-                        
                     if food_name not in categorized[current_station]:
                         categorized[current_station].append(food_name)
             break
             
-    # Remove empty stations
     final_menu = {k: v for k, v in categorized.items() if v}
 
-    # MIDDLE SCHOOL SPECIFIC FILTERING
     if is_middle_school:
         filtered_menu = {}
         for station, items in final_menu.items():
-            # Skip if station name contains "MILK" or "CONDIMENT"
             if any(bad in station.upper() for bad in MS_STATION_BLOCKLIST):
                 continue
             filtered_menu[station] = items
@@ -158,7 +145,6 @@ def extract_station_data(data, target_date, is_middle_school=False):
 # --- DOCUMENT CREATION FUNCTIONS ---
 
 def create_simple_doc(content_list, disclaimer, margin_top=2.8):
-    """For Elementary Lunch and Breakfast (Simple List)."""
     doc = Document()
     sec = doc.sections[0]
     sec.top_margin = Inches(margin_top)
@@ -166,7 +152,6 @@ def create_simple_doc(content_list, disclaimer, margin_top=2.8):
     sec.left_margin = Inches(1)
     sec.right_margin = Inches(1)
 
-    # Disclaimer Footer
     footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
     footer.text = disclaimer
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -188,22 +173,14 @@ def create_simple_doc(content_list, disclaimer, margin_top=2.8):
     return buf
 
 def create_middle_school_doc(categorized_data, disclaimer):
-    """
-    Specific Middle School Formatting:
-    - Top Margin: 2.5
-    - Station Header: 16pt, Bold, Underlined
-    - Items: 12pt, Bold
-    - No Page Breaks
-    """
     doc = Document()
     sec = doc.sections[0]
-    sec.top_margin = Inches(2.5)  # specific to MS
+    sec.top_margin = Inches(2.5)
     sec.bottom_margin = Inches(1.0)
     sec.left_margin = Inches(1)
     sec.right_margin = Inches(1)
     sec.footer_distance = Inches(0.5)
 
-    # Footer
     footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
     footer.text = disclaimer
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -214,7 +191,6 @@ def create_middle_school_doc(categorized_data, disclaimer):
     stations = list(categorized_data.keys())
     
     for index, station_name in enumerate(stations):
-        # 1. STATION HEADER
         head_p = doc.add_paragraph()
         if index > 0:
             head_p.paragraph_format.space_before = Pt(18) 
@@ -227,7 +203,6 @@ def create_middle_school_doc(categorized_data, disclaimer):
         head_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         head_p.paragraph_format.space_after = Pt(6)
 
-        # 2. FOOD ITEMS
         items = categorized_data[station_name]
         for item in items:
             p = doc.add_paragraph()
@@ -244,13 +219,6 @@ def create_middle_school_doc(categorized_data, disclaimer):
     return buf
 
 def create_high_school_doc(categorized_data, disclaimer):
-    """
-    Specific High School Formatting:
-    - Top Margin: 2.8
-    - Station Header: 24pt, Bold
-    - Items: 18pt, Bold
-    - Page Breaks between stations
-    """
     doc = Document()
     sec = doc.sections[0]
     sec.top_margin = Inches(2.8)
@@ -259,7 +227,6 @@ def create_high_school_doc(categorized_data, disclaimer):
     sec.right_margin = Inches(1)
     sec.footer_distance = Inches(0.8)
 
-    # Footer
     footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
     footer.text = disclaimer
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -270,7 +237,6 @@ def create_high_school_doc(categorized_data, disclaimer):
     stations = list(categorized_data.keys())
 
     for index, station_name in enumerate(stations):
-        # Station Header
         head_p = doc.add_paragraph()
         head_run = head_p.add_run(station_name.upper())
         head_run.font.name = "Times New Roman"
@@ -280,7 +246,6 @@ def create_high_school_doc(categorized_data, disclaimer):
         
         doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
-        # Items
         items = categorized_data[station_name]
         for item in items:
             p = doc.add_paragraph()
@@ -340,7 +305,9 @@ if st.button("🚀 Generate Menus", type="primary"):
     try:
         r = requests.get(CSV_URL, timeout=10)
         r.raise_for_status()
-        schools = list(csv.DictReader(io.StringIO(r.text)))
+        # Decode utf-8-sig to handle Excel BOM (Fixes 'None' key issue)
+        csv_text = r.content.decode('utf-8-sig')
+        schools_raw = list(csv.DictReader(io.StringIO(csv_text)))
     except Exception as e:
         st.error(f"Error loading Schools.csv: {e}")
         st.stop()
@@ -367,12 +334,10 @@ if st.button("🚀 Generate Menus", type="primary"):
             if run_breakfast:
                 status.text(f"Processing Breakfast: {d_str}")
                 subfolder = f"{parent}All_School_Breakfast_Menus_{d_str}/"
-                
                 for level, slug in REPRESENTATIVE_BREAKFAST.items():
                     data = fetch_menu_data(slug, d, "breakfast")
                     items = extract_food_items(data, d)
                     if items:
-                        # Use simple doc creator
                         doc = create_simple_doc(items, BREAKFAST_DISCLAIMER)
                         zipf.writestr(f"{subfolder}{level}_Breakfast_{d_str}.docx", doc.read())
                 done += 1
@@ -382,61 +347,46 @@ if st.button("🚀 Generate Menus", type="primary"):
             if run_ele_lunch:
                 status.text(f"Processing Elementary Lunch: {d_str}")
                 subfolder = f"{parent}Elementary_Lunch_{d_str}/"
-                
                 data = fetch_menu_data(ELEMENTARY_LUNCH_SLUG, d, "lunch")
                 items = extract_food_items(data, d)
                 if items:
-                    # Use simple doc creator
                     doc = create_simple_doc(items, LUNCH_DISCLAIMER)
                     zipf.writestr(f"{subfolder}Elementary_Lunch_{d_str}.docx", doc.read())
                 done += 1
                 progress.progress(done / total)
 
-            # 3. MIDDLE LUNCH (Updated Formatting)
+            # 3. MIDDLE LUNCH
             if run_mid_lunch:
                 status.text(f"Processing Middle Lunch: {d_str}")
-                subfolder = f"{parent}Middle_School_Lunch_{d_str}/" # Note: Changed folder name to match file
-                
+                subfolder = f"{parent}Middle_School_Lunch_{d_str}/"
                 data = fetch_menu_data(MIDDLE_LUNCH_SLUG, d, "lunch")
-                # Pass is_middle_school=True for specific filtering
                 stations = extract_station_data(data, d, is_middle_school=True)
-                
                 if stations:
-                    # Use specific Middle School doc creator
                     doc = create_middle_school_doc(stations, LUNCH_DISCLAIMER)
                     zipf.writestr(f"{subfolder}Middle_Lunch_{d_str}.docx", doc.read())
                 done += 1
                 progress.progress(done / total)
 
-            # 4. HIGH SCHOOL LUNCH (Updated Filenames)
+            # 4. HIGH SCHOOL LUNCH (FIXED LOGIC)
             if run_high_lunch:
                 status.text(f"Processing High School Lunch: {d_str}")
                 subfolder = f"{parent}High_Lunch_{d_str}/"
                 
-                for s in schools:
-                    # Logic updated to match high_lunch.py
-                    school_type = s.get("Type") or s.get("type")
-                    if school_type == "HS":
-                        slug = s.get("Url Name") or s.get("URL") or s.get("Url")
-                        name = s.get("School Name") or s.get("SchoolName")
-                        
-                        if slug:
-                            data = fetch_menu_data(slug, d, "lunch")
-                            stations = extract_station_data(data, d, is_middle_school=False)
-                            if stations:
-                                # Use specific High School doc creator
-                                doc = create_high_school_doc(stations, LUNCH_DISCLAIMER)
-                                
-                                # Updated Filename logic: replace spaces, slashes, remove dots
-                                safe_name = str(name).replace(" ", "_").replace("/", "-").replace(".", "")
-                                zipf.writestr(f"{subfolder}{safe_name}_Lunch.docx", doc.read())
-                done += 1
-                progress.progress(done / total)
+                for row in schools_raw:
+                    # Clean the row keys just like in high_lunch.py
+                    clean_row = {k.strip(): v for k, v in row.items() if k}
+                    
+                    # Robust lookup
+                    school_name = clean_row.get("School Name") or clean_row.get("SchoolName")
+                    slug = clean_row.get("Url Name") or clean_row.get("URL") or clean_row.get("Url")
+                    school_type = clean_row.get("Type") or clean_row.get("type")
 
-    st.success("Menus Generated Successfully!")
-    st.download_button(
-        "📥 Download ZIP",
-        zip_buffer.getvalue(),
-        f"Line_Menus_{start_d}_to_{end_d}.zip",
-        "application/zip"
-    )
+                    if school_type == "HS" and slug and school_name:
+                        data = fetch_menu_data(slug, d, "lunch")
+                        stations = extract_station_data(data, d, is_middle_school=False)
+                        
+                        if stations:
+                            doc = create_high_school_doc(stations, LUNCH_DISCLAIMER)
+                            
+                            # EXACT Logic from high_lunch.py
+                            safe_name = str(school
