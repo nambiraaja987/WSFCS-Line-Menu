@@ -12,7 +12,26 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # CONFIGURATION & BRANDING
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="wide")
+st.markdown(
+    """
+    <style>
+    /* Hide Streamlit header */
+    header {visibility: hidden;}
 
+    /* Hide Streamlit footer */
+    footer {visibility: hidden;}
+
+    /* Hide hamburger menu */
+    #MainMenu {visibility: hidden;}
+
+    /* Remove top padding */
+    .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # ==============================================================================
 # GITHUB RAW FILES
 # ==============================================================================
@@ -268,3 +287,4 @@ if st.button("🚀 Generate Menus", type="primary"):
         f"Line_Menus_{start_d}_to_{end_d}.zip",
         "application/zip"
     )
+
