@@ -166,4 +166,127 @@ def create_middle_school_doc(data, disclaimer):
 
 def create_high_school_doc(data, disclaimer):
     doc = Document()
-    sec = doc.sections
+    sec = doc.sections[0]
+    sec.top_margin, sec.bottom_margin = Inches(2.8), Inches(1.5)
+    footer = sec.footer.paragraphs[0]
+    footer.text, footer.alignment = disclaimer, WD_ALIGN_PARAGRAPH.CENTER
+    for r in footer.runs: r.font.name, r.font.size = "Times New Roman", Pt(9)
+    stations = list(data.keys())
+    for i, station in enumerate(stations):
+        p = doc.add_paragraph()
+        r = p.add_run(station.upper())
+        r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(24), True
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_paragraph().paragraph_format.space_after = Pt(12)
+        for item in data[station]:
+            p = doc.add_paragraph()
+            r = p.add_run(item.upper())
+            r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(18), True
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if i < len(stations) - 1: doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+# ==============================================================================
+# HEADER (CENTERED LOGO & TITLE)
+# ==============================================================================
+# Use columns to manually center the logo
+c1, c2, c3 = st.columns([1, 1, 1])
+with c2:
+    if os.path.exists(WSFCS_LOGO_FILENAME):
+        st.image(WSFCS_LOGO_FILENAME, width=150)
+
+st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h2>", unsafe_allow_html=True)
+st.markdown("---")
+
+# ==============================================================================
+# INPUTS (STANDARD LEFT ALIGNMENT)
+# ==============================================================================
+st.subheader("🗓️ 1. Select Date Range")
+c1, c2 = st.columns(2)
+with c1: start_d = st.date_input("Start Date", date.today())
+with c2: end_d = st.date_input("End Date", date.today())
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+st.subheader("🍴 2. Select Menus")
+mc1, mc2 = st.columns(2)
+with mc1:
+    run_breakfast = st.checkbox("All Schools - Breakfast", True)
+    run_ele_lunch = st.checkbox("Elementary Lunch", True)
+with mc2:
+    run_mid_lunch = st.checkbox("Middle School Lunch", True)
+    run_high_lunch = st.checkbox("High School Lunch", True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ==============================================================================
+# LOGIC & LOADING SPINNER
+# ==============================================================================
+if st.button("🚀 Generate & Download Menus", type="primary"):
+    
+    if start_d > end_d:
+        st.error("Start Date must be before End Date.")
+        st.stop()
+    if not os.path.exists(CSV_FILENAME):
+        st.error(f"Missing {CSV_FILENAME}")
+        st.stop()
+
+    # --- LOADING SPINNER ADDED HERE ---
+    with st.spinner('Generating Menus... Please wait, this may take a moment.'):
+        
+        with open(CSV_FILENAME, mode='r', encoding='utf-8-sig') as f:
+            schools_raw = list(csv.DictReader(f))
+
+        zip_buffer = io.BytesIO()
+        dates = [start_d + timedelta(days=x) for x in range((end_d - start_d).days + 1)]
+        
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for d in dates:
+                d_str, parent = d.strftime("%Y-%m-%d"), f"Line Menu_{d.strftime('%Y-%m-%d')}/"
+                
+                if run_breakfast:
+                    sub = f"{parent}All_School_Breakfast_Menus_{d_str}/"
+                    for lvl, slug in REPRESENTATIVE_BREAKFAST.items():
+                        data = fetch_menu_data(slug, d, "breakfast")
+                        items = extract_food_items(data, d)
+                        if items: zipf.writestr(f"{sub}{lvl}_Breakfast_{d_str}.docx", create_simple_doc(items, BREAKFAST_DISCLAIMER).read())
+
+                if run_ele_lunch:
+                    sub = f"{parent}Elementary_Lunch_{d_str}/"
+                    data = fetch_menu_data(ELEMENTARY_LUNCH_SLUG, d, "lunch")
+                    items = extract_food_items(data, d)
+                    if items: zipf.writestr(f"{sub}Elementary_Lunch_{d_str}.docx", create_simple_doc(items, LUNCH_DISCLAIMER).read())
+
+                if run_mid_lunch:
+                    sub = f"{parent}Middle_School_Lunch_{d_str}/"
+                    data = fetch_menu_data(MIDDLE_LUNCH_SLUG, d, "lunch")
+                    stations = extract_station_data(data, d, True)
+                    if stations: zipf.writestr(f"{sub}Middle_Lunch_{d_str}.docx", create_middle_school_doc(stations, LUNCH_DISCLAIMER).read())
+
+                if run_high_lunch:
+                    sub = f"{parent}High_Lunch_{d_str}/"
+                    for row in schools_raw:
+                        clean = {k.strip(): v for k, v in row.items() if k}
+                        if clean.get("Type") == "HS":
+                            data = fetch_menu_data(clean.get("Url Name"), d, "lunch")
+                            stations = extract_station_data(data, d, False)
+                            if stations:
+                                safe_name = str(clean.get("School Name")).replace(" ", "_").replace("/", "-").replace(".", "")
+                                zipf.writestr(f"{sub}{safe_name}_Lunch.docx", create_high_school_doc(stations, LUNCH_DISCLAIMER).read())
+
+    # Success message outside spinner
+    st.success("✅ Menus Generated Successfully!")
+    st.download_button("📥 Download ZIP", zip_buffer.getvalue(), f"Line_Menus_{start_d}_{end_d}.zip", "application/zip")
+
+# ==============================================================================
+# FOOTER: CHARTWELLS LOGO (BOTTOM RIGHT)
+# ==============================================================================
+st.markdown("<br><br>", unsafe_allow_html=True) 
+if os.path.exists(CHARTWELLS_LOGO_FILENAME):
+    # Push to right
+    fc1, fc2 = st.columns([5, 1]) 
+    with fc2:
+        st.image(CHARTWELLS_LOGO_FILENAME, width=120)
