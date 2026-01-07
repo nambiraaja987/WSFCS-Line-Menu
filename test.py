@@ -14,21 +14,19 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- CUSTOM CSS (LIGHT MODE, LAYOUT & BUTTON FIXES) ---
+# --- CUSTOM CSS (LIGHT MODE, LAYOUT & MOBILE FIXES) ---
 custom_css = """
     <style>
-    /* 1. Force Light Mode (White Background, Black Text) */
+    /* 1. Force Light Mode */
     .stApp {
         background-color: #ffffff !important;
         color: #000000 !important;
     }
-    
-    /* Force all text (Headers, Paragraphs, Labels) to Black */
     h1, h2, h3, h4, h5, h6, p, label, span, .stMarkdown {
         color: #000000 !important;
     }
 
-    /* 2. Hide default Streamlit elements */
+    /* 2. Hide Streamlit Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
@@ -39,19 +37,18 @@ custom_css = """
         max-width: 800px;
     }
 
-    /* 4. GENERAL BUTTON STYLING (Generate Button) */
+    /* 4. Button Styles */
     .stButton > button {
         width: 100%;
         margin-top: 1rem;
         font-size: 1.2rem !important;
     }
 
-    /* 5. DOWNLOAD BUTTON HOVER FIX */
-    /* This prevents the Download button from turning black on hover */
+    /* 5. Download Button Hover Fix */
     .stDownloadButton > button:hover {
-        background-color: #f0f2f6 !important; /* Light Gray */
-        color: #000000 !important;             /* Black Text */
-        border: 1px solid #333333 !important;  /* Darker Border */
+        background-color: #f0f2f6 !important;
+        color: #000000 !important;
+        border: 1px solid #333333 !important;
     }
     .stDownloadButton > button {
         background-color: #ffffff;
@@ -59,11 +56,27 @@ custom_css = """
         border: 1px solid #cccccc;
     }
 
-    /* 6. Mobile Responsiveness */
+    /* 6. MOBILE RESPONSIVENESS FIXES */
     @media (max-width: 640px) {
         h2 { font-size: 1.5rem !important; }
+        
+        /* FORCE CENTER ALL IMAGES ON MOBILE */
+        div[data-testid="stImage"] {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        
         div[data-testid="stImage"] > img {
-            margin: 0 auto;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            display: block !important;
+        }
+        
+        /* Force columns to align items to center on mobile */
+        [data-testid="column"] {
+            align-items: center;
+            text-align: center;
         }
     }
     </style>
@@ -90,7 +103,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 # ==============================================================================
 # LOCAL FILES & CONSTANTS
@@ -243,7 +255,7 @@ with col2:
     if os.path.exists(WSFCS_LOGO_FILENAME):
         st.image(WSFCS_LOGO_FILENAME, width=150)
 
-st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h2>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ==============================================================================
@@ -268,7 +280,7 @@ with mc2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==============================================================================
-# LOGIC: PROGRESS BAR & STATUS TEXT
+# LOGIC
 # ==============================================================================
 if st.button("🚀 Generate & Download Menus", type="primary"):
     
