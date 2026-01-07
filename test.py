@@ -14,51 +14,39 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- CSS FOR CENTERED ALIGNMENT (DESKTOP & MOBILE) ---
+# --- MOBILE FRIENDLY & CENTERED CSS ---
 mobile_css = """
     <style>
-    /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* CENTER EVERYTHING */
-    .block-container {
-        text-align: center;
-        max-width: 800px;
-        padding-top: 2rem;
-    }
-    
-    /* Center Widget Labels (Date Input Labels) */
-    .stDateInput label {
-        justify-content: center;
-        width: 100%;
-        text-align: center;
-    }
-    
-    /* Center Checkboxes */
-    .stCheckbox {
-        display: flex;
-        justify-content: center;
-        text-align: center;
-    }
-    
-    /* Mobile: Stack columns and force center */
+    /* Force columns to stack on mobile */
     @media (max-width: 640px) {
         [data-testid="column"] {
             width: 100% !important;
             flex: 1 1 100% !important;
             min-width: 100% !important;
+            text-align: center !important;
         }
+        
         div[data-testid="stImage"] > img {
-            margin: 0 auto;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
     }
     
-    /* Bigger, Centered Generate Button */
+    /* Center the main container and adjust padding */
+    .block-container {
+        padding-top: 2rem;
+        max-width: 800px;
+    }
+    
+    /* Style the generate button to be wide on mobile */
     .stButton > button {
         width: 100%;
-        margin-top: 1rem;
+        height: 3em;
         font-size: 1.2rem !important;
     }
     </style>
@@ -93,7 +81,7 @@ REPRESENTATIVE_BREAKFAST = {"Elementary": "ashley-magnet", "Middle": "clemmons-m
 ELEMENTARY_LUNCH_SLUG = "ashley-magnet"
 MIDDLE_LUNCH_SLUG = "hanes-magnet"
 
-# --- HELPER FUNCTIONS ---
+# --- HELPER FUNCTIONS (KEEPING YOUR LOGIC UNCHANGED) ---
 def fetch_menu_data(slug, target_date, menu_type):
     url = f"https://wsfcs.api.nutrislice.com/menu/api/weeks/school/{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
     try:
@@ -208,28 +196,25 @@ def create_high_school_doc(data, disclaimer):
     return buf
 
 # ==============================================================================
-# MAIN INTERFACE
+# MAIN INTERFACE (CENTERED)
 # ==============================================================================
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
     if os.path.exists(WSFCS_LOGO_FILENAME): st.image(WSFCS_LOGO_FILENAME, width=120)
 with col2:
-    st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Line Menu Generator</h2>", unsafe_allow_html=True)
 with col3:
     if os.path.exists(CHARTWELLS_LOGO_FILENAME): st.image(CHARTWELLS_LOGO_FILENAME, width=160)
 
 st.markdown("---")
 
-# --- 1. DATES (CENTERED) ---
-st.markdown("<h4 style='text-align: center;'>🗓️ Select Date Range</h4>", unsafe_allow_html=True)
+# --- SETTINGS MOVED TO CENTER ---
+st.subheader("🗓️ 1. Select Date Range")
 c1, c2 = st.columns(2)
 with c1: start_d = st.date_input("Start Date", date.today())
 with c2: end_d = st.date_input("End Date", date.today())
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- 2. MENUS (CENTERED) ---
-st.markdown("<h4 style='text-align: center;'>🍴 Select Menus</h4>", unsafe_allow_html=True)
+st.subheader("🍴 2. Select Menus")
 mc1, mc2 = st.columns(2)
 with mc1:
     run_breakfast = st.checkbox("All Schools - Breakfast", True)
@@ -293,3 +278,4 @@ if st.button("🚀 Generate & Download Menus", type="primary"):
 
     st.success("✅ Menus Generated!")
     st.download_button("📥 Download ZIP", zip_buffer.getvalue(), f"Line_Menus_{start_d}_{end_d}.zip", "application/zip")
+
