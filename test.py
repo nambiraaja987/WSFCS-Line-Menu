@@ -342,4 +342,5 @@ if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     # Use columns to push logo to the right
     fc1, fc2 = st.columns([5, 1]) 
     with fc2:
-        st.image(CHARTWELLS_LOGO_FILENAME, width=120)
+        st.image(CHARTWELLS_LOGO_FILENAME, width=190)
+
