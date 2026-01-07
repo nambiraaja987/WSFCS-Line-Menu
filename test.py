@@ -43,42 +43,6 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- MOBILE FRIENDLY CSS ---
-mobile_css = """
-    <style>
-    /* Hide Streamlit default elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
-
-    /* Force columns to stack on mobile */
-    @media (max-width: 640px) {
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 calc(100% - 1rem) !important;
-            min-width: 100% !important;
-            text-align: center !important;
-        }
-        
-        /* Center the logos when stacked */
-        div[data-testid="stImage"] > img {
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        /* Adjust font sizes for mobile */
-        h1 {
-            font-size: 1.8rem !important;
-        }
-    }
-    
-    .block-container {
-        padding-top: 2rem;
-    }
-    </style>
-"""
-st.markdown(mobile_css, unsafe_allow_html=True)
 # ==============================================================================
 # GITHUB RAW FILES
 # ==============================================================================
@@ -469,6 +433,7 @@ if st.button("🚀 Generate Menus", type="primary"):
         f"Line_Menus_{start_d}_to_{end_d}.zip",
         "application/zip"
     )
+
 
 
 
