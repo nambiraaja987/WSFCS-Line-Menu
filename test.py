@@ -14,40 +14,47 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- MOBILE FRIENDLY & CENTERED CSS ---
+# --- CSS FOR STYLING ---
 mobile_css = """
     <style>
+    /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* Force columns to stack on mobile */
+    /* Center Widget Labels */
+    .stDateInput label {
+        justify-content: center;
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Center Checkboxes */
+    .stCheckbox {
+        display: flex;
+        justify-content: center;
+        text-align: center;
+    }
+    
+    /* Bigger, Centered Generate Button */
+    .stButton > button {
+        width: 100%;
+        margin-top: 1rem;
+        font-size: 1.2rem !important;
+    }
+
+    /* Mobile Tweaks */
     @media (max-width: 640px) {
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 100% !important;
-            min-width: 100% !important;
-            text-align: center !important;
-        }
-        
+        h2 { font-size: 1.5rem !important; }
+        /* Center logos on mobile */
         div[data-testid="stImage"] > img {
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 0 auto;
         }
     }
     
-    /* Center the main container and adjust padding */
     .block-container {
         padding-top: 2rem;
         max-width: 800px;
-    }
-    
-    /* Style the generate button to be wide on mobile */
-    .stButton > button {
-        width: 100%;
-        height: 3em;
-        font-size: 1.2rem !important;
     }
     </style>
 """
@@ -81,7 +88,7 @@ REPRESENTATIVE_BREAKFAST = {"Elementary": "ashley-magnet", "Middle": "clemmons-m
 ELEMENTARY_LUNCH_SLUG = "ashley-magnet"
 MIDDLE_LUNCH_SLUG = "hanes-magnet"
 
-# --- HELPER FUNCTIONS (KEEPING YOUR LOGIC UNCHANGED) ---
+# --- HELPER FUNCTIONS ---
 def fetch_menu_data(slug, target_date, menu_type):
     url = f"https://wsfcs.api.nutrislice.com/menu/api/weeks/school/{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
     try:
@@ -196,25 +203,29 @@ def create_high_school_doc(data, disclaimer):
     return buf
 
 # ==============================================================================
-# MAIN INTERFACE (CENTERED)
+# MAIN INTERFACE
 # ==============================================================================
-col1, col2, col3 = st.columns([1, 2, 1])
-with col1:
-    if os.path.exists(WSFCS_LOGO_FILENAME): st.image(WSFCS_LOGO_FILENAME, width=120)
-with col2:
-    st.markdown("<h2 style='text-align: center;'>Line Menu Generator</h2>", unsafe_allow_html=True)
-with col3:
-    if os.path.exists(CHARTWELLS_LOGO_FILENAME): st.image(CHARTWELLS_LOGO_FILENAME, width=160)
 
+# --- TOP: WSFCS LOGO (CENTERED) ---
+if os.path.exists(WSFCS_LOGO_FILENAME):
+    # Using columns to center: empty | logo | empty
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2:
+        st.image(WSFCS_LOGO_FILENAME, width=150)
+
+st.markdown("<h2 style='text-align: center; margin-bottom: 0;'>Line Menu Generator</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- SETTINGS MOVED TO CENTER ---
-st.subheader("🗓️ 1. Select Date Range")
+# --- 1. DATES ---
+st.markdown("<h4 style='text-align: center;'>🗓️ Select Date Range</h4>", unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 with c1: start_d = st.date_input("Start Date", date.today())
 with c2: end_d = st.date_input("End Date", date.today())
 
-st.subheader("🍴 2. Select Menus")
+st.markdown("<br>", unsafe_allow_html=True)
+
+# --- 2. MENUS ---
+st.markdown("<h4 style='text-align: center;'>🍴 Select Menus</h4>", unsafe_allow_html=True)
 mc1, mc2 = st.columns(2)
 with mc1:
     run_breakfast = st.checkbox("All Schools - Breakfast", True)
@@ -279,3 +290,12 @@ if st.button("🚀 Generate & Download Menus", type="primary"):
     st.success("✅ Menus Generated!")
     st.download_button("📥 Download ZIP", zip_buffer.getvalue(), f"Line_Menus_{start_d}_{end_d}.zip", "application/zip")
 
+# ==============================================================================
+# FOOTER: CHARTWELLS LOGO (BOTTOM RIGHT)
+# ==============================================================================
+st.markdown("<br><br>", unsafe_allow_html=True) # Add some spacing
+if os.path.exists(CHARTWELLS_LOGO_FILENAME):
+    # Create columns to push image to the far right
+    fc1, fc2 = st.columns([4, 1]) 
+    with fc2:
+        st.image(CHARTWELLS_LOGO_FILENAME, width=150)
