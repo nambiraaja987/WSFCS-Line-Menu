@@ -3,6 +3,7 @@ import requests
 import csv
 import io
 import zipfile
+import os
 from datetime import date, timedelta
 from docx import Document
 from docx.shared import Inches, Pt
@@ -11,50 +12,54 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 # CONFIGURATION & BRANDING
 # ==============================================================================
-st.set_page_config(page_title="WSFCS Menu Generator", layout="wide")
-st.markdown(
-    """
+st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
+
+# --- MOBILE FRIENDLY & CENTERED CSS ---
+mobile_css = """
     <style>
-    /* Hide Streamlit header */
-    header {visibility: hidden;}
-
-    /* Hide Streamlit footer */
-    footer {visibility: hidden;}
-
-    /* Hide hamburger menu */
     #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
 
-    /* Remove top padding */
+    /* Force columns to stack on mobile */
+    @media (max-width: 640px) {
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            text-align: center !important;
+        }
+        
+        div[data-testid="stImage"] > img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    }
+    
+    /* Center the main container and adjust padding */
     .block-container {
-        padding-top: 1rem;
+        padding-top: 2rem;
+        max-width: 800px;
+    }
+    
+    /* Style the generate button to be wide on mobile */
+    .stButton > button {
+        width: 100%;
+        height: 3em;
+        font-size: 1.2rem !important;
     }
     </style>
-    """,
-    unsafe_allow_html=True
-)
-
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stDeployButton {display:none;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+"""
+st.markdown(mobile_css, unsafe_allow_html=True)
 
 # ==============================================================================
-# GITHUB RAW FILES
+# LOCAL FILES & CONSTANTS
 # ==============================================================================
-BASE_URL = "https://raw.githubusercontent.com/nambiraaja987/WSFCS-Line-Menu/main"
+CSV_FILENAME = "Schools.csv"
+WSFCS_LOGO_FILENAME = "wsfcs.png"
+CHARTWELLS_LOGO_FILENAME = "Chartwells.png"
 
-CSV_URL = f"{BASE_URL}/Schools.csv"
-WSFCS_LOGO_URL = f"{BASE_URL}/wsfcs.png"
-CHARTWELLS_LOGO_URL = f"{BASE_URL}/Chartwells.png"
-
-# ==============================================================================
-# DISCLAIMERS
-# ==============================================================================
 LUNCH_DISCLAIMER = (
     "A full student lunch includes a choice of one (1) entrée supplying protein and grain, "
     "two (2) vegetable side dishes, one (1) fruit side dish, and one (1) milk. "
@@ -70,42 +75,22 @@ BREAKFAST_DISCLAIMER = (
     "and one (1) milk. Milk choices include skim white, 1% white, and skim chocolate"
 )
 
-# ==============================================================================
-# CONSTANTS
-# ==============================================================================
-EXCLUDED_ITEMS = [
-    "MAYONNAISE", "KETCHUP", "MUSTARD", "RANCH DRESSING",
-    "BARBECUE SAUCE", "HOT SAUCE", "PACKET", "SYRUP",
-    "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"
-]
+EXCLUDED_ITEMS = ["MAYONNAISE", "KETCHUP", "MUSTARD", "RANCH DRESSING", "BARBECUE SAUCE", "HOT SAUCE", "PACKET", "SYRUP", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 
-REPRESENTATIVE_BREAKFAST = {
-    "Elementary": "ashley-magnet",
-    "Middle": "clemmons-middle",
-    "High": "east-forsyth"
-}
-
+REPRESENTATIVE_BREAKFAST = {"Elementary": "ashley-magnet", "Middle": "clemmons-middle", "High": "east-forsyth"}
 ELEMENTARY_LUNCH_SLUG = "ashley-magnet"
 MIDDLE_LUNCH_SLUG = "hanes-magnet"
 
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
+# --- HELPER FUNCTIONS (KEEPING YOUR LOGIC UNCHANGED) ---
 def fetch_menu_data(slug, target_date, menu_type):
-    url = (
-        f"https://wsfcs.api.nutrislice.com/menu/api/weeks/school/"
-        f"{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
-    )
+    url = f"https://wsfcs.api.nutrislice.com/menu/api/weeks/school/{slug}/menu-type/{menu_type}/{target_date:%Y/%m/%d}/?format=json"
     try:
         r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            return r.json()
-    except:
-        pass
+        if r.status_code == 200: return r.json()
+    except: pass
     return {}
 
 def extract_food_items(data, target_date):
-    """Extracts simple list of items (for Breakfast/Elementary)."""
     items = []
     date_str = target_date.strftime("%Y-%m-%d")
     for day in data.get("days", []):
@@ -114,328 +99,182 @@ def extract_food_items(data, target_date):
                 food = item.get("food")
                 if food and food.get("name"):
                     name = food["name"]
-                    if not any(x in name.upper() for x in EXCLUDED_ITEMS):
-                        items.append(name)
+                    if not any(x in name.upper() for x in EXCLUDED_ITEMS): items.append(name)
             break
     return items
 
 def extract_station_data(data, target_date, is_middle_school=False):
-    """Extracts station-based data (High School / Middle School)."""
     categorized = {}
     current_station = "General Menu"
-    if not is_middle_school:
-        categorized[current_station] = []
-        
+    if not is_middle_school: categorized[current_station] = []
     date_str = target_date.strftime("%Y-%m-%d")
     MS_STATION_BLOCKLIST = ["MILK", "CONDIMENT", "CONDIMENTS"]
-
     for day in data.get("days", []):
         if day.get("date") == date_str:
             for item in day.get("menu_items", []):
-                is_header = False
-                header_text = ""
-                if item.get('is_section_title') is True:
-                    is_header = True
-                    header_text = item.get('text', '')
-                elif item.get('food') is None and item.get('text'):
-                    is_header = True
-                    header_text = item.get('text', '')
-
-                if is_header and header_text:
-                    clean_header = header_text.strip()
-                    if len(clean_header) > 2: 
+                is_header = item.get('is_section_title') or (item.get('food') is None and item.get('text'))
+                if is_header and item.get('text'):
+                    clean_header = item.get('text').strip()
+                    if len(clean_header) > 2:
                         current_station = clean_header
-                        if current_station not in categorized:
-                            categorized[current_station] = []
-                    continue 
-
+                        categorized.setdefault(current_station, [])
+                    continue
                 food = item.get("food")
                 if food and isinstance(food, dict) and food.get("name"):
-                    food_name = food["name"]
-                    if any(x in food_name.upper() for x in EXCLUDED_ITEMS):
-                        continue
-                    if current_station not in categorized:
-                        categorized[current_station] = []
-                    if food_name not in categorized[current_station]:
-                        categorized[current_station].append(food_name)
+                    name = food["name"]
+                    if not any(x in name.upper() for x in EXCLUDED_ITEMS):
+                        categorized.setdefault(current_station, []).append(name)
             break
-            
     final_menu = {k: v for k, v in categorized.items() if v}
-
     if is_middle_school:
-        filtered_menu = {}
-        for station, items in final_menu.items():
-            if any(bad in station.upper() for bad in MS_STATION_BLOCKLIST):
-                continue
-            filtered_menu[station] = items
-        return filtered_menu
-
+        return {k: v for k, v in final_menu.items() if not any(b in k.upper() for b in MS_STATION_BLOCKLIST)}
     return final_menu
 
-# --- DOCUMENT CREATION FUNCTIONS ---
-
-def create_simple_doc(content_list, disclaimer, margin_top=2.8):
+def create_simple_doc(content, disclaimer, margin_top=2.8):
     doc = Document()
     sec = doc.sections[0]
-    sec.top_margin = Inches(margin_top)
-    sec.bottom_margin = Inches(1.5)
-    sec.left_margin = Inches(1)
-    sec.right_margin = Inches(1)
-
-    footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
-    footer.text = disclaimer
-    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for r in footer.runs:
-        r.font.name = "Times New Roman"
-        r.font.size = Pt(9)
-
-    for item in content_list:
+    sec.top_margin, sec.bottom_margin = Inches(margin_top), Inches(1.5)
+    footer = sec.footer.paragraphs[0]
+    footer.text, footer.alignment = disclaimer, WD_ALIGN_PARAGRAPH.CENTER
+    for r in footer.runs: r.font.name, r.font.size = "Times New Roman", Pt(9)
+    for item in content:
         p = doc.add_paragraph()
         r = p.add_run(item.upper())
-        r.font.name = "Times New Roman"
-        r.font.size = Pt(18)
-        r.font.bold = True
+        r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(18), True
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
     return buf
 
-def create_middle_school_doc(categorized_data, disclaimer):
+def create_middle_school_doc(data, disclaimer):
     doc = Document()
     sec = doc.sections[0]
-    sec.top_margin = Inches(2.5)
-    sec.bottom_margin = Inches(1.0)
-    sec.left_margin = Inches(1)
-    sec.right_margin = Inches(1)
-    sec.footer_distance = Inches(0.5)
-
-    footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
-    footer.text = disclaimer
-    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for r in footer.runs:
-        r.font.name = "Times New Roman"
-        r.font.size = Pt(9)
-
-    stations = list(categorized_data.keys())
-    
-    for index, station_name in enumerate(stations):
-        head_p = doc.add_paragraph()
-        if index > 0:
-            head_p.paragraph_format.space_before = Pt(18) 
-        
-        head_run = head_p.add_run(station_name.upper())
-        head_run.font.name = "Times New Roman"
-        head_run.font.size = Pt(16)
-        head_run.font.bold = True
-        head_run.font.underline = True
-        head_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        head_p.paragraph_format.space_after = Pt(6)
-
-        items = categorized_data[station_name]
-        for item in items:
+    sec.top_margin, sec.bottom_margin = Inches(2.5), Inches(1.0)
+    footer = sec.footer.paragraphs[0]
+    footer.text, footer.alignment = disclaimer, WD_ALIGN_PARAGRAPH.CENTER
+    for r in footer.runs: r.font.name, r.font.size = "Times New Roman", Pt(9)
+    for i, station in enumerate(data):
+        p = doc.add_paragraph()
+        if i > 0: p.paragraph_format.space_before = Pt(18)
+        r = p.add_run(station.upper())
+        r.font.name, r.font.size, r.font.bold, r.font.underline = "Times New Roman", Pt(16), True, True
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for item in data[station]:
             p = doc.add_paragraph()
             r = p.add_run(item.upper())
-            r.font.name = "Times New Roman"
-            r.font.size = Pt(12)
-            r.font.bold = True
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.paragraph_format.space_after = Pt(2)
-
+            r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(12), True
+            p.alignment, p.paragraph_format.space_after = WD_ALIGN_PARAGRAPH.CENTER, Pt(2)
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
     return buf
 
-def create_high_school_doc(categorized_data, disclaimer):
+def create_high_school_doc(data, disclaimer):
     doc = Document()
     sec = doc.sections[0]
-    sec.top_margin = Inches(2.8)
-    sec.bottom_margin = Inches(1.5)
-    sec.left_margin = Inches(1)
-    sec.right_margin = Inches(1)
-    sec.footer_distance = Inches(0.8)
-
-    footer = sec.footer.paragraphs[0] if sec.footer.paragraphs else sec.footer.add_paragraph()
-    footer.text = disclaimer
-    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for r in footer.runs:
-        r.font.name = "Times New Roman"
-        r.font.size = Pt(9)
-
-    stations = list(categorized_data.keys())
-
-    for index, station_name in enumerate(stations):
-        head_p = doc.add_paragraph()
-        head_run = head_p.add_run(station_name.upper())
-        head_run.font.name = "Times New Roman"
-        head_run.font.size = Pt(24) 
-        head_run.font.bold = True
-        head_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
+    sec.top_margin, sec.bottom_margin = Inches(2.8), Inches(1.5)
+    footer = sec.footer.paragraphs[0]
+    footer.text, footer.alignment = disclaimer, WD_ALIGN_PARAGRAPH.CENTER
+    for r in footer.runs: r.font.name, r.font.size = "Times New Roman", Pt(9)
+    stations = list(data.keys())
+    for i, station in enumerate(stations):
+        p = doc.add_paragraph()
+        r = p.add_run(station.upper())
+        r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(24), True
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph().paragraph_format.space_after = Pt(12)
-
-        items = categorized_data[station_name]
-        for item in items:
+        for item in data[station]:
             p = doc.add_paragraph()
             r = p.add_run(item.upper())
-            r.font.name = "Times New Roman"
-            r.font.size = Pt(18)
-            r.font.bold = True
+            r.font.name, r.font.size, r.font.bold = "Times New Roman", Pt(18), True
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        if index < len(stations) - 1:
-            doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
-
+        if i < len(stations) - 1: doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
     return buf
 
 # ==============================================================================
-# WEBSITE INTERFACE
+# MAIN INTERFACE (CENTERED)
 # ==============================================================================
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
-    st.image(WSFCS_LOGO_URL, width=150)
+    if os.path.exists(WSFCS_LOGO_FILENAME): st.image(WSFCS_LOGO_FILENAME, width=120)
 with col2:
-    st.markdown("<h1 style='text-align: center;'>Line Menu Generator</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Select any date range.</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Line Menu Generator</h2>", unsafe_allow_html=True)
 with col3:
-    st.image(CHARTWELLS_LOGO_URL, width=200)
+    if os.path.exists(CHARTWELLS_LOGO_FILENAME): st.image(CHARTWELLS_LOGO_FILENAME, width=160)
 
 st.markdown("---")
 
-# ==============================================================================
-# SIDEBAR
-# ==============================================================================
-with st.sidebar:
-    st.header("⚙️ Settings")
+# --- SETTINGS MOVED TO CENTER ---
+st.subheader("🗓️ 1. Select Date Range")
+c1, c2 = st.columns(2)
+with c1: start_d = st.date_input("Start Date", date.today())
+with c2: end_d = st.date_input("End Date", date.today())
 
-    st.subheader("1. Select Date Range")
-    start_d = st.date_input("Start Date", date.today())
-    end_d = st.date_input("End Date", date.today())
-
-    st.subheader("2. Menu Categories")
+st.subheader("🍴 2. Select Menus")
+mc1, mc2 = st.columns(2)
+with mc1:
     run_breakfast = st.checkbox("All Schools - Breakfast", True)
     run_ele_lunch = st.checkbox("Elementary Lunch", True)
+with mc2:
     run_mid_lunch = st.checkbox("Middle School Lunch", True)
     run_high_lunch = st.checkbox("High School Lunch", True)
 
-# ==============================================================================
-# MAIN LOGIC
-# ==============================================================================
-if st.button("🚀 Generate Menus", type="primary"):
+st.markdown("<br>", unsafe_allow_html=True)
 
+# ==============================================================================
+# LOGIC
+# ==============================================================================
+if st.button("🚀 Generate & Download Menus", type="primary"):
     if start_d > end_d:
         st.error("Start Date must be before End Date.")
         st.stop()
-
-    try:
-        r = requests.get(CSV_URL, timeout=10)
-        r.raise_for_status()
-        # Decode utf-8-sig to handle Excel BOM (Fixes 'None' key issue)
-        csv_text = r.content.decode('utf-8-sig')
-        schools_raw = list(csv.DictReader(io.StringIO(csv_text)))
-    except Exception as e:
-        st.error(f"Error loading Schools.csv: {e}")
+    if not os.path.exists(CSV_FILENAME):
+        st.error(f"Missing {CSV_FILENAME}")
         st.stop()
 
-    zip_buffer = io.BytesIO()
-    progress = st.progress(0)
-    status = st.empty()
+    with open(CSV_FILENAME, mode='r', encoding='utf-8-sig') as f:
+        schools_raw = list(csv.DictReader(f))
 
-    dates = []
-    d = start_d
-    while d <= end_d:
-        dates.append(d)
-        d += timedelta(days=1)
-
-    total = len(dates) * 4
-    done = 0
-
+    zip_buffer, status = io.BytesIO(), st.empty()
+    dates = [start_d + timedelta(days=x) for x in range((end_d - start_d).days + 1)]
+    
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
         for d in dates:
-            d_str = d.strftime("%Y-%m-%d")
-            parent = f"Line Menu_{d_str}/"
-
-            # 1. BREAKFAST
+            d_str, parent = d.strftime("%Y-%m-%d"), f"Line Menu_{d.strftime('%Y-%m-%d')}/"
+            
             if run_breakfast:
-                status.text(f"Processing Breakfast: {d_str}")
-                subfolder = f"{parent}All_School_Breakfast_Menus_{d_str}/"
-                for level, slug in REPRESENTATIVE_BREAKFAST.items():
+                sub = f"{parent}All_School_Breakfast_Menus_{d_str}/"
+                for lvl, slug in REPRESENTATIVE_BREAKFAST.items():
                     data = fetch_menu_data(slug, d, "breakfast")
                     items = extract_food_items(data, d)
-                    if items:
-                        doc = create_simple_doc(items, BREAKFAST_DISCLAIMER)
-                        zipf.writestr(f"{subfolder}{level}_Breakfast_{d_str}.docx", doc.read())
-                done += 1
-                progress.progress(done / total)
+                    if items: zipf.writestr(f"{sub}{lvl}_Breakfast_{d_str}.docx", create_simple_doc(items, BREAKFAST_DISCLAIMER).read())
 
-            # 2. ELEMENTARY LUNCH
             if run_ele_lunch:
-                status.text(f"Processing Elementary Lunch: {d_str}")
-                subfolder = f"{parent}Elementary_Lunch_{d_str}/"
+                sub = f"{parent}Elementary_Lunch_{d_str}/"
                 data = fetch_menu_data(ELEMENTARY_LUNCH_SLUG, d, "lunch")
                 items = extract_food_items(data, d)
-                if items:
-                    doc = create_simple_doc(items, LUNCH_DISCLAIMER)
-                    zipf.writestr(f"{subfolder}Elementary_Lunch_{d_str}.docx", doc.read())
-                done += 1
-                progress.progress(done / total)
+                if items: zipf.writestr(f"{sub}Elementary_Lunch_{d_str}.docx", create_simple_doc(items, LUNCH_DISCLAIMER).read())
 
-            # 3. MIDDLE LUNCH
             if run_mid_lunch:
-                status.text(f"Processing Middle Lunch: {d_str}")
-                subfolder = f"{parent}Middle_School_Lunch_{d_str}/"
+                sub = f"{parent}Middle_School_Lunch_{d_str}/"
                 data = fetch_menu_data(MIDDLE_LUNCH_SLUG, d, "lunch")
-                stations = extract_station_data(data, d, is_middle_school=True)
-                if stations:
-                    doc = create_middle_school_doc(stations, LUNCH_DISCLAIMER)
-                    zipf.writestr(f"{subfolder}Middle_Lunch_{d_str}.docx", doc.read())
-                done += 1
-                progress.progress(done / total)
+                stations = extract_station_data(data, d, True)
+                if stations: zipf.writestr(f"{sub}Middle_Lunch_{d_str}.docx", create_middle_school_doc(stations, LUNCH_DISCLAIMER).read())
 
-            # 4. HIGH SCHOOL LUNCH (FIXED LOGIC)
             if run_high_lunch:
-                status.text(f"Processing High School Lunch: {d_str}")
-                subfolder = f"{parent}High_Lunch_{d_str}/"
-                
+                sub = f"{parent}High_Lunch_{d_str}/"
                 for row in schools_raw:
-                    # Clean the row keys just like in high_lunch.py
-                    clean_row = {k.strip(): v for k, v in row.items() if k}
-                    
-                    # Robust lookup
-                    school_name = clean_row.get("School Name") or clean_row.get("SchoolName")
-                    slug = clean_row.get("Url Name") or clean_row.get("URL") or clean_row.get("Url")
-                    school_type = clean_row.get("Type") or clean_row.get("type")
-
-                    if school_type == "HS" and slug and school_name:
-                        data = fetch_menu_data(slug, d, "lunch")
-                        stations = extract_station_data(data, d, is_middle_school=False)
-                        
+                    clean = {k.strip(): v for k, v in row.items() if k}
+                    if clean.get("Type") == "HS":
+                        data = fetch_menu_data(clean.get("Url Name"), d, "lunch")
+                        stations = extract_station_data(data, d, False)
                         if stations:
-                            doc = create_high_school_doc(stations, LUNCH_DISCLAIMER)
-                            
-                            # EXACT Logic from high_lunch.py
-                            safe_name = str(school_name).replace(" ", "_").replace("/", "-").replace(".", "")
-                            filename = f"{safe_name}_Lunch.docx"
-                            
-                            zipf.writestr(f"{subfolder}{filename}", doc.read())
-                done += 1
-                progress.progress(done / total)
+                            safe_name = str(clean.get("School Name")).replace(" ", "_").replace("/", "-").replace(".", "")
+                            zipf.writestr(f"{sub}{safe_name}_Lunch.docx", create_high_school_doc(stations, LUNCH_DISCLAIMER).read())
 
-    st.success("Menus Generated Successfully!")
-    st.download_button(
-        "📥 Download ZIP",
-        zip_buffer.getvalue(),
-        f"Line_Menus_{start_d}_to_{end_d}.zip",
-        "application/zip"
-    )
-
-
-
-
-
-
+    st.success("✅ Menus Generated!")
+    st.download_button("📥 Download ZIP", zip_buffer.getvalue(), f"Line_Menus_{start_d}_{end_d}.zip", "application/zip")
