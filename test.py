@@ -33,15 +33,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stDeployButton {display:none;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+
 # ==============================================================================
 # GITHUB RAW FILES
 # ==============================================================================
@@ -432,5 +424,6 @@ if st.button("🚀 Generate Menus", type="primary"):
         f"Line_Menus_{start_d}_to_{end_d}.zip",
         "application/zip"
     )
+
 
 
