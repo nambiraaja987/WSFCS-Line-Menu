@@ -14,7 +14,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 # ==============================================================================
 st.set_page_config(page_title="WSFCS Menu Generator", layout="centered")
 
-# --- CUSTOM CSS (LIGHT MODE, LAYOUT & MOBILE FIXES) ---
+# --- FINAL CSS FIXES (AGGRESSIVE HIDING) ---
 custom_css = """
     <style>
     /* 1. Force Light Mode */
@@ -26,25 +26,43 @@ custom_css = """
         color: #000000 !important;
     }
 
-    /* 2. Hide Streamlit Elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
-
-    /* 3. Main Container Padding */
+    /* 2. AGGRESSIVE FOOTER & HEADER HIDING */
+    /* Target the specific Streamlit Test IDs to ensure they are gone */
+    [data-testid="stHeader"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    [data-testid="stFooter"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+    }
+    footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    #MainMenu {
+        display: none !important;
+    }
+    .stDeployButton {
+        display: none !important;
+    }
+    
+    /* Remove bottom padding so no white space is left behind */
     .block-container {
         padding-top: 1rem;
+        padding-bottom: 0rem !important;
         max-width: 800px;
     }
 
-    /* 4. Button Styles */
+    /* 3. Button Styles */
     .stButton > button {
         width: 100%;
         margin-top: 1rem;
         font-size: 1.2rem !important;
     }
 
-    /* 5. Download Button Hover Fix */
+    /* 4. Download Button Hover Fix */
     .stDownloadButton > button:hover {
         background-color: #f0f2f6 !important;
         color: #000000 !important;
@@ -56,11 +74,10 @@ custom_css = """
         border: 1px solid #cccccc;
     }
 
-    /* 6. MOBILE RESPONSIVENESS FIXES */
+    /* 5. Mobile Responsiveness */
     @media (max-width: 640px) {
         h2 { font-size: 1.5rem !important; }
         
-        /* FORCE CENTER ALL IMAGES ON MOBILE */
         div[data-testid="stImage"] {
             display: flex;
             justify-content: center;
@@ -73,7 +90,6 @@ custom_css = """
             display: block !important;
         }
         
-        /* Force columns to align items to center on mobile */
         [data-testid="column"] {
             align-items: center;
             text-align: center;
@@ -82,27 +98,6 @@ custom_css = """
     </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
-
-st.markdown(
-    """
-    <style>
-    /* Hide Streamlit header */
-    header {visibility: hidden;}
-
-    /* Hide Streamlit footer */
-    footer {visibility: hidden;}
-
-    /* Hide hamburger menu */
-    #MainMenu {visibility: hidden;}
-
-    /* Remove top padding */
-    .block-container {
-        padding-top: 1rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # ==============================================================================
 # LOCAL FILES & CONSTANTS
@@ -282,7 +277,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==============================================================================
 # LOGIC
 # ==============================================================================
-if st.button("🚀 Generate Menus", type="primary"):
+if st.button("🚀 Generate & Download Menus", type="primary"):
     
     if start_d > end_d:
         st.error("Start Date must be before End Date.")
@@ -365,11 +360,6 @@ if st.button("🚀 Generate Menus", type="primary"):
 st.markdown("<br><br>", unsafe_allow_html=True)
 if os.path.exists(CHARTWELLS_LOGO_FILENAME):
     # Use columns to push logo to the right
-    fc1, fc2 = st.columns([2, 1]) 
+    fc1, fc2 = st.columns([5, 1]) 
     with fc2:
-        st.image(CHARTWELLS_LOGO_FILENAME, width=150)
-
-
-
-
-
+        st.image(CHARTWELLS_LOGO_FILENAME, width=120)
